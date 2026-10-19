@@ -1,0 +1,47 @@
+                   
+                   
+┌─────────────────┐
+│ 3 Code Findings │
+└─────────────────┘
+                      
+    BACKEND/Dockerfile
+   ❯❯❱ dockerfile.security.missing-user.missing-user
+          ❰❰ Blocking ❱❱
+          By not specifying a USER, a program in the container may run as 'root'. This is a security hazard.
+          If an attacker can control a process running as root, they may have control over the container.   
+          Ensure that the last USER in a Dockerfile is a USER other than 'root'.                            
+          Details: https://sg.run/Gbvn                                                                      
+                                                                                                            
+           ▶▶┆ Autofix ▶ USER non-root CMD ["node", "src/app.js"]
+           23┆ CMD ["node", "src/app.js"]
+                              
+    BACKEND/src/routes/auth.js
+    ❯❱ ajinabraham.njsscan.crypto.timing_attack_node.node_timing_attack
+          ❰❰ Blocking ❱❱
+          String comparisons using '===', '!==', '!=' and '==' is vulnerable to timing attacks. A timing      
+          attack allows the attacker to learn potentially sensitive information by, for example, measuring how
+          long it takes for the application to respond to a request.  More info:                              
+          https://nodejs.org/en/learn/getting-started/security-best-practices#information-exposure-through-   
+          timing-attacks-cwe-208                                                                              
+          Details: https://sg.run/BDR2                                                                        
+                                                                                                              
+           26┆ if (user.contrasena_hash !== password) {
+           27┆   return res.status(401).json({ error: "Credenciales inválidas" });
+           28┆ }
+                                   
+    BACKEND/src/routes/contracts.js
+   ❯❯❱ ajinabraham.njsscan.xss.xss_node.express_xss
+          ❰❰ Blocking ❱❱
+          Untrusted User Input in Response will result in Reflected Cross Site Scripting Vulnerability.
+          Details: https://sg.run/WxE4                                                                 
+                                                                                                       
+          415┆ const doc = await pool.query(
+          416┆   "SELECT document FROM documentos_contrato WHERE contract_id=$1 ORDER BY id DESC LIMIT 1",
+          417┆   [req.params.id]
+          418┆ );
+          419┆ if (doc.rows.length === 0)
+          420┆   return res.status(404).json({ error: "Documento no encontrado" });
+          421┆ const buffer = doc.rows[0].document;
+          422┆ res.setHeader("Content-Type", "application/pdf");
+          423┆ res.setHeader("Content-Disposition", 'inline; filename="contrato.pdf"');
+          424┆ res.send(buffer);
