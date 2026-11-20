@@ -1,0 +1,989 @@
+{
+  "info": {
+    "name": "Atlas Seguridad EP5",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "CP-01 Autenticacion (RF-1.1)",
+      "item": [
+        {
+          "name": "CP-01a Login valido admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/autenticacion/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre_usuario\": \"{{adminUser}}\", \"password\": \"{{adminPass}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-01a: login valido responde 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('CP-01a: entrega token JWT',()=>{const j=pm.response.json();pm.expect(j.token).to.be.a('string');pm.collectionVariables.set('adminToken',j.token);});",
+                  "pm.test('CP-01a/NFR-PERF-1: respuesta < 300 ms',()=>pm.expect(pm.response.responseTime).to.be.below(300));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-01b Contrasena incorrecta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/autenticacion/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre_usuario\": \"{{adminUser}}\", \"password\": \"incorrecta\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-01b: rechaza con 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-01c Usuario inexistente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/autenticacion/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre_usuario\": \"noexiste\", \"password\": \"x\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-01c: rechaza con 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('CP-01c: mensaje generico (no revela si existe el usuario)',()=>pm.expect(pm.response.json().error).to.eql('Credenciales invalidas'.replace('invalidas','inválidas')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup: login editor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/autenticacion/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre_usuario\": \"{{editorUser}}\", \"password\": \"{{editorPass}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Setup: login editor 200',()=>{pm.response.to.have.status(200);pm.collectionVariables.set('editorToken',pm.response.json().token);});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CP-02 Logout y revocacion (RF-1.2, NFR-SEG-9)",
+      "item": [
+        {
+          "name": "Setup: token para logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/autenticacion/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre_usuario\": \"{{adminUser}}\", \"password\": \"{{adminPass}}\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Setup: login 200',()=>{pm.response.to.have.status(200);pm.collectionVariables.set('logoutToken',pm.response.json().token);});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-02a Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{logoutToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/autenticacion/logout"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-02a: existe endpoint de logout (200/204)',()=>pm.expect([200,204]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-02b Reutilizar token tras logout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{logoutToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-02b: token revocado es rechazado (401)',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CP-07 Rol editor solo lectura (RF-3.2, RB-4, NFR-SEG-4)",
+      "item": [
+        {
+          "name": "Setup: admin crea cliente temporal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Cliente Temporal QA\", \"correo\": \"qa@test.cl\", \"telefono\": \"912345678\", \"direccion\": \"Calle 1 123\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j={};try{j=pm.response.json()}catch(e){}",
+                  "if(j.id)pm.collectionVariables.set('clienteTmp',j.id);",
+                  "pm.test('Setup: cliente creado',()=>pm.expect(pm.collectionVariables.get('clienteTmp')).to.exist);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-07a Editor lista clientes (permitido)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{editorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-07a: editor puede leer (200)',()=>pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-07b Editor crea cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{editorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Cliente Temporal QA\", \"correo\": \"qa@test.cl\", \"telefono\": \"912345678\", \"direccion\": \"Calle 1 123\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j={};try{j=pm.response.json()}catch(e){}",
+                  "if(j.id)pm.collectionVariables.set('clienteEditor',j.id);",
+                  "pm.test('CP-07b: editor no puede crear (403)',()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-07c Editor edita cliente",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{editorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes/{{clienteTmp}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Modificado por editor\", \"correo\": \"qa@test.cl\", \"telefono\": \"912345678\", \"direccion\": \"Calle 1 123\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-07c: editor no puede editar (403)',()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-07d Editor elimina cliente",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{editorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes/{{clienteTmp}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-07d: editor no puede eliminar (403)',()=>pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: admin elimina temporales",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes/{{clienteTmp}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cleanup ejecutado',()=>pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: elimina cliente creado por editor",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes/{{clienteEditor}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cleanup ejecutado',()=>pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CP-13 Validacion de archivos (RF-5.2)",
+      "item": [
+        {
+          "name": "CP-13 Subir archivo .html como adjunto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/contratos",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "cliente_id",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "titulo",
+                  "value": "Contrato QA archivo",
+                  "type": "text"
+                },
+                {
+                  "key": "fecha_inicio",
+                  "value": "2026-01-01",
+                  "type": "text"
+                },
+                {
+                  "key": "fecha_fin",
+                  "value": "2026-12-31",
+                  "type": "text"
+                },
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "prueba.html"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j={};try{j=pm.response.json()}catch(e){}",
+                  "if(j.id)pm.collectionVariables.set('contratoArchivo',j.id);",
+                  "pm.test('CP-13: formato no permitido rechazado (400/415)',()=>pm.expect([400,415]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: elimina contrato de prueba",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/contratos/{{contratoArchivo}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cleanup ejecutado',()=>pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CP-17 Auditoria (RF-6.1, NFR-SEG-6)",
+      "item": [
+        {
+          "name": "Setup: admin crea cliente (accion critica)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"Cliente Temporal QA\", \"correo\": \"qa@test.cl\", \"telefono\": \"912345678\", \"direccion\": \"Calle 1 123\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j={};try{j=pm.response.json()}catch(e){}",
+                  "if(j.id)pm.collectionVariables.set('clienteAud',j.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-17a Accion queda registrada",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/auditoria"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-17a: auditoria registra CLIENTES_CREAR',()=>{const t=JSON.stringify(pm.response.json());pm.expect(t).to.include('CLIENTES_CREAR');});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-17b Auditoria sin token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auditoria"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-17b: sin token se rechaza (401)',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-17c Insertar log falso sin token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/auditoria",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"accion\": \"LOGIN\", \"detalles\": \"log falso QA\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-17c: no se permite insertar logs sin token (401)',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: elimina cliente",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes/{{clienteAud}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cleanup ejecutado',()=>pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CP-21 Control de acceso / IDOR (NFR-SEG-4, RB-2)",
+      "item": [
+        {
+          "name": "Setup: admin crea contrato temporal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/contratos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"cliente_id\": 1, \"titulo\": \"Contrato QA IDOR\", \"fecha_inicio\": \"2026-01-01\", \"fecha_fin\": \"2026-12-31\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j={};try{j=pm.response.json()}catch(e){}",
+                  "if(j.id)pm.collectionVariables.set('contratoTmp',j.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-21a Ver contrato sin token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contratos/{{contratoTmp}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-21a: sin token 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-21b Descargar archivo sin token",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contratos/1/file"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-21b: sin token 401',()=>pm.expect(pm.response.code).to.eql(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-21c Eliminar contrato sin token",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/contratos/{{contratoTmp}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-21c: sin token 401 (el contrato no debe eliminarse)',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-21d Usuarios: crear sin token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/usuarios",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre_usuario\": \"intruso_qa\", \"contrasena_hash\": \"x\", \"correo\": \"intruso@qa.cl\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j={};try{j=pm.response.json()}catch(e){}",
+                  "if(j.id)pm.collectionVariables.set('usuarioIntruso',j.id);",
+                  "pm.test('CP-21d: crear usuario sin token 401',()=>pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: borrar contrato temporal",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/contratos/{{contratoTmp}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cleanup ejecutado',()=>pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: borrar usuario intruso",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/usuarios/{{usuarioIntruso}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cleanup ejecutado',()=>pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "CP-22 Inyeccion SQL y XSS (NFR-SEG-5)",
+      "item": [
+        {
+          "name": "CP-22a SQLi en login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/autenticacion/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre_usuario\": \"' OR '1'='1\", \"password\": \"' OR '1'='1\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-22a: SQLi en login rechazado (401)',()=>pm.response.to.have.status(401));",
+                  "pm.test('CP-22a: no se emite token',()=>pm.expect(pm.response.json().token).to.be.undefined);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-22b SQLi en buscador de clientes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes/search?name=%27%3B%20DROP%20TABLE%20clientes%3B--"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('CP-22b: sin error de servidor (no 500)',()=>pm.expect(pm.response.code).to.be.below(500));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CP-22c XSS almacenado en nombre de cliente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\": \"<script>alert(1)</script>\", \"correo\": \"qa@test.cl\", \"telefono\": \"912345678\", \"direccion\": \"Calle 1 123\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let j={};try{j=pm.response.json()}catch(e){}",
+                  "if(j.id)pm.collectionVariables.set('clienteXss',j.id);",
+                  "pm.test('CP-22c: entrada con script rechazada o saneada (400)',()=>pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cleanup: elimina cliente XSS",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/clientes/{{clienteXss}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Cleanup ejecutado',()=>pm.expect([200,404]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
